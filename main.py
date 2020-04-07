@@ -9,10 +9,20 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import pandas as pd
 import funciones
+import requests
 
+#Teniendo en cuenta que la informacion del Covid-19 se encuentra en la web, se referencia la data para que esta este actualizada
+url="https://e.infogram.com/api/live/flex/bc384047-e71c-47d9-b606-1eb6a29962e3/664bc407-2569-4ab8-b7fb-9deb668ddb7a?"
 
+#Debido a que la información no proviene de un formato dado, es necesario definirla como texto y aprovechar
+#que esta viene en formato py, por ende se evalua ese texto
+s=eval(requests.get(url).text)
 
-df = pd.read_csv('insdata.csv')
+#Se seleccionan unicamente el dataframe del historico y se define como dataframe
+data=s["data"][0]
+df = pd.DataFrame(data=data[1:], columns=data[0])
+
+#df = pd.read_csv('insdata.csv')
 f = df[['Fecha de diagnóstico']].drop_duplicates()
 #print(f[['Fecha de diagnóstico']])
 #Parece ser q iterar un dataframe de pandas no es buena idea. Convertir mejor a lista
