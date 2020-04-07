@@ -3,13 +3,17 @@
 """
 Created on Sat Apr  4 14:18:04 2020
 
-@author: andresmpinzonv
+Bioinformatics and Systems Biology Group
+Institute for Genetics
+National University of Colombia
+
+Please see contributors on GitHub
 """
-import matplotlib.pyplot as plt
+
 import matplotlib.dates as mdates
 import pandas as pd
-import funciones
 import requests
+from funciones import plotme
 
 #Teniendo en cuenta que la informacion del Covid-19 se encuentra en la web, se referencia la data para que esta este actualizada
 url="https://e.infogram.com/api/live/flex/bc384047-e71c-47d9-b606-1eb6a29962e3/664bc407-2569-4ab8-b7fb-9deb668ddb7a?"
@@ -56,11 +60,23 @@ for row in ff:
     myFechas.append(r)
     
 
+#---------- DATOS BASICOS ----------
+    
+print ("----------------") 
 
-print(sum(allCasos))
-print(sum(allImp))
-print(sum(allRel))
-print(sum(allEst))
+c = sum(allCasos)
+i = sum(allImp)
+e = sum(allEst)
+r = sum(allRel)
+print('Casos Totales:     ' + str(c))
+print('Casos Importados:  ' + str(i) + "(" + str(percentage(i,c)) + "%)")  
+print('Casos Relacionados:' + str(r) + "(" + str(percentage(r,c)) + "%)")
+print('Casos en Estudio:  ' + str(e) + "(" + str(percentage(e,c)) + "%)")
+
+
+
+
+
 #--------------  RELACIONADOS - IMPORTADOS - EN ESTUDIO ------------------------ 
 # PLOTEAR 
 plot2Ydata=[]

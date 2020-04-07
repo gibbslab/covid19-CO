@@ -15,6 +15,10 @@ tile: Título de la gráfica
 #Color picking:
 #https://learnui.design/tools/data-color-picker.html
 """
+#Llamando matplotlib desde acá fue la única manera de evitar que Python
+# no viera a "plt".
+import matplotlib.pyplot as plt
+
 def plotme(x,y,label,title):
     
     #Acá se asume que "Y" tanto como "label" tienen la misma longitud
@@ -30,7 +34,14 @@ def plotme(x,y,label,title):
     plt.tick_params(axis='x', rotation=70)
     
     plt.suptitle(title)
-    #plt.annotate(xy=[1,1], s="Inico")
+    
+    #https://matplotlib.org/2.0.2/examples/pylab_examples/annotation_demo.html
+    plt.annotate('Tapabocas obligatorio',
+            xy=(26, 70), xycoords='data',
+            xytext=(-50, 50), textcoords='offset points',
+            arrowprops=dict(facecolor='#58508d', shrink=0.05),
+            horizontalalignment='right', verticalalignment='bottom')
+    
     plt.show()
    
     
@@ -38,6 +49,14 @@ def plotme(x,y,label,title):
 
     #Este comando abre la ventana para mostrar la grafica. Es probable
     #que en spyder no sea necesario, pero e IpYthon solo debería necesitarse.
+   
+"""
+Funcion para calcular porcentajes simples
+Retorna un entero de 64
+"""
+    
+def percentage(part, whole):
+  return 100 * float(part)/float(whole)
    
     
 
