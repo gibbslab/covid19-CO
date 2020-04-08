@@ -13,7 +13,7 @@ Please see contributors on GitHub
 import matplotlib.dates as mdates
 import pandas as pd
 import requests
-from funciones import plotme
+from funciones import plotme, percentage
 
 #Teniendo en cuenta que la informacion del Covid-19 se encuentra en la web, se referencia la data para que esta este actualizada
 url="https://e.infogram.com/api/live/flex/bc384047-e71c-47d9-b606-1eb6a29962e3/664bc407-2569-4ab8-b7fb-9deb668ddb7a?"
@@ -120,5 +120,44 @@ fig1Title =  "Acumulado, Incremento y Casos por fecha"
 plotme(myFechas, fig1Ydata,fig1labels, fig1Title)
 
 
+#--------------  MODELO SIR -------------------- 
+
+# Clasificacion por Atencion en fechas
+EstadosFecha = df.groupby(['Fecha de diagnóstico', 'Atención**'], sort=False)['ID de caso'].count()
+
+# poblacion colombiana
+N = 49070000 # 49,07 millones
+
+# infectados y recuperados
+Infectados = []
+Recuperados = []
+Fechas = []
+
+Recuperados.append(1)
+Infectados.append(1)
+Fechas.append('')
+Rec = 0
+Inf = 0
+for items in EstadosFecha.iteritems():
+    if Fechas[-1] != items[0][0]:
+        Fechas.append(items[0][0])
+        Recuperados.append(Rec)
+        Infectados.append(Inf)
+        
+        Inf = 0
+        Rec = 0
+    Tipo = items[0][1]
+    if Tipo == 'Casa' or Tipo == 'Hospital' or Tipo == 'Hospital UCI':
+        Inf = Inf + items[1]
+    elif Tipo == 'Recuperado' or Tipo == 'Fallecido':
+        Rec = Rec + items[1]
 
 
+# PLOTEAR 
+fig1Ydata=[]
+fig1Ydata.append(Recuperados)
+fig1Ydata.append(Infectados)
+fig1labels = ["Recuperados","Infectados"]
+fig1Title =  "Recuperados vs Infectados por Fecha"
+
+plotme(Fechas, fig1Ydata,fig1labels, fig1Title)
