@@ -14,6 +14,10 @@ tile: Título de la gráfica
 #https://matplotlib.org/api/_as_gen/matplotlib.pyplot.plot.html
 #Color picking:
 #https://learnui.design/tools/data-color-picker.html
+
+Se llama así:
+#plotme(myFechas,plot2Ydata,plot2Labels,plot2Title)
+
 """
 #Llamando matplotlib desde acá fue la única manera de evitar que Python
 # no viera a "plt".
@@ -21,9 +25,13 @@ import matplotlib.pyplot as plt
 
 def plotme(x,y,label,title):
     
+    
+   
+ 
     #Acá se asume que "Y" tanto como "label" tienen la misma longitud
     for i in range(0,len(y)):
         plt.plot(x,y[i],label = label[i], marker ='.',linewidth='1.5')
+
     
     
     plt.grid()
@@ -49,7 +57,7 @@ def plotme(x,y,label,title):
 
     #Este comando abre la ventana para mostrar la grafica. Es probable
     #que en spyder no sea necesario, pero e IpYthon solo debería necesitarse.
-   
+ 
 """
 Funcion para calcular porcentajes simples
 Retorna un entero de 64

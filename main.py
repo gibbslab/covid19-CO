@@ -9,7 +9,7 @@ National University of Colombia
 
 Please see contributors on GitHub
 """
-
+import plotly.offline as pyo
 import matplotlib.dates as mdates
 import pandas as pd
 import requests
@@ -24,10 +24,23 @@ s=eval(requests.get(url).text)
 
 #Se seleccionan unicamente el dataframe del historico y se define como dataframe
 data=s["data"][0]
+#df = pd.read_csv('insdata.csv')
 df = pd.DataFrame(data=data[1:], columns=data[0])
 
-#df = pd.read_csv('insdata.csv')
-f = df[['Fecha de diagnóstico']].drop_duplicates()
+#Renombrar algunas columnas
+df.rename(columns = {'Fecha de diagnóstico':'Fecha',
+                     'ID de caso':'ID', 
+                     'País de procedencia':'Procedencia', 
+                     'Ciudad de ubicación':'Ciudad',
+                     'Departamento o Distrito':'Departamento',
+                     'Atención**':'Atencion',
+                     'Tipo*':'Tipo'}, inplace = True) 
+
+
+
+
+
+f = df[['Fecha']].drop_duplicates()
 #print(f[['Fecha de diagnóstico']])
 #Parece ser q iterar un dataframe de pandas no es buena idea. Convertir mejor a lista
 #https://stackoverflow.com/questions/16476924/how-to-iterate-over-rows-in-a-dataframe-in-pandas
@@ -45,16 +58,16 @@ for row in ff:
     #Pandas y SQL:https://pandas.pydata.org/pandas-docs/stable/getting_started/comparison/comparison_with_sql.html
 
  
-    rel = df[(df['Tipo*'] == 'Relacionado') & (df['Fecha de diagnóstico'] == r)].count()
+    rel = df[(df['Tipo'] == 'Relacionado') & (df['Fecha'] == r)].count()
     allRel.append(rel[0])
     
-    imp = df[(df['Tipo*'] == 'Importado') & (df['Fecha de diagnóstico'] == r)].count()
+    imp = df[(df['Tipo'] == 'Importado') & (df['Fecha'] == r)].count()
     allImp.append(imp[0])
     
-    est = df[(df['Tipo*'] == 'En estudio') & (df['Fecha de diagnóstico'] == r)].count()
+    est = df[(df['Tipo'] == 'En estudio') & (df['Fecha'] == r)].count()
     allEst.append(est[0])
     
-    casos = df[(df['Fecha de diagnóstico'] == r)].count()
+    casos = df[(df['Fecha'] == r)].count()
     allCasos.append(casos[0])
     
     myFechas.append(r)
@@ -86,7 +99,33 @@ plot2Ydata.append(allEst)
 plot2Labels = ["Importados","Relacionados","En Estudio"]
 plot2Title = "Importados, Relacionados y En Estudio por Fecha"
 
-plotme(myFechas,plot2Ydata,plot2Labels,plot2Title)
+trace1 = {'x': myFechas,
+          'y': allImp,
+          'mode' : "lines+markers",
+          'name' : 'Contagio en el exterior',
+          'marker' : dict(color = 'DarkSlateGrey')
+          } ;
+trace2 = {'x': myFechas,
+          'y': allRel,
+          'mode' : "lines+markers",
+          'name' : 'Contagio en Colombia',
+          'marker' : dict(color = '#ff6361')
+          } ;
+trace3 = {'x': myFechas,
+          'y': allEst,
+          'mode' : "lines+markers",
+          'name' : 'En estudio',
+          'marker' : dict(color = '#ffa600')
+          } ;
+
+data = [trace1, trace2, trace3];
+
+layout = dict(title = 'Casos venidos del extranjero vs. contagios locales',  xaxis= dict(title= 'Fecha',ticklen= 5,zeroline= False)
+             )
+
+fig = dict(data = data, layout = layout)
+pyo.plot(fig)
+  
 
 
 
@@ -109,21 +148,53 @@ for i in range(1,len(allCasos)):
     x = allCasos[i] - allCasos[i-1]
     inc.append(x)
 
-# PLOTEAR 
+# --- PLOTEAR 
 fig1Ydata=[]
 fig1Ydata.append(acum)
 fig1Ydata.append(inc)
 fig1Ydata.append(allCasos)
 fig1labels = ["Acumulado","Incremento", "Casos Diarios"]
-fig1Title =  "Acumulado, Incremento y Casos por fecha"
+fig1Title =  "Acumulado, Incremento y Casos en Colombia desde su aparición"
 
-plotme(myFechas, fig1Ydata,fig1labels, fig1Title)
+ 
+#Crear los parámetros para cada "trace". Basicamente eje Y.
+trace1 = {'x': myFechas,
+          'y': acum,
+          'mode' : "lines+markers",
+          'name' : 'Acumulado',
+          'marker' : dict(color = 'DarkSlateGrey')
+          } ;
+
+trace2 = {'x':myFechas,
+          'y':inc,
+          'mode' : "lines+markers",
+          'name':'Incremento',
+          'marker' : dict(color = '#ff6361')
+          };
+
+trace3 = {'x':myFechas,
+          'y':allCasos,
+          'mode' : "lines+markers",
+          'name':'Casos',
+          'marker' : dict(color = '#ffa600')
+          };
+
+data = [trace1, trace2, trace3];
+#print(data)
+
+layout = dict(title = 'Progresión de casos en Colombia desde Marzo 6 del 2020 a la fecha',  xaxis= dict(title= 'Fecha',ticklen= 5,zeroline= False)
+             )
+
+fig = dict(data = data, layout = layout)
+pyo.plot(fig)
 
 
+
+    
 #--------------  MODELO SIR -------------------- 
 
 # Clasificacion por Atencion en fechas
-EstadosFecha = df.groupby(['Fecha de diagnóstico', 'Atención**'], sort=False)['ID de caso'].count()
+EstadosFecha = df.groupby(['Fecha', 'Atencion'], sort=False)['ID'].count()
 
 # poblacion colombiana
 N = 49070000 # 49,07 millones
@@ -160,4 +231,25 @@ fig1Ydata.append(Infectados)
 fig1labels = ["Recuperados","Infectados"]
 fig1Title =  "Recuperados vs Infectados por Fecha"
 
-plotme(Fechas, fig1Ydata,fig1labels, fig1Title)
+trace1 = {'x': myFechas,
+          'y': Recuperados,
+          'mode' : "lines+markers",
+          'name' : 'Recuperados',
+          'marker' : dict(color = 'DarkSlateGrey')
+          } ;
+
+trace2 = {'x':myFechas,
+          'y':Infectados,
+          'mode' : "lines+markers",
+          'name':'Infectados',
+          'marker' : dict(color = '#ff6361')
+          };
+
+data = [trace1, trace2];
+#print(data)
+
+layout = dict(title = 'Recuperados vs. Infectaods',  xaxis= dict(title= 'Fecha',ticklen= 5,zeroline= False)
+             )
+
+fig = dict(data = data, layout = layout)
+pyo.plot(fig)
