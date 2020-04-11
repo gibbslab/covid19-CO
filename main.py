@@ -63,16 +63,7 @@ print('Casos Relacionados:' + str(r) + "(" + str(percentage(r,c)) + "%)")
 print('Casos en Estudio:  ' + str(e) + "(" + str(percentage(e,c)) + "%)")
 
 
-
-
-
 #--------------  RELACIONADOS - IMPORTADOS - EN ESTUDIO ------------------------ 
-# plot2Ydata=[]
-# plot2Ydata.append(allImp)
-# plot2Ydata.append(allRel)
-# plot2Ydata.append(allEst)
-# plot2Labels = ["Importados","Relacionados","En Estudio"]
-# plot2Title = "Importados, Relacionados y En Estudio por Fecha"
 
 trace1 = {'x': allImp['Fecha'],
           'y': allImp['ID_Count'],
@@ -112,13 +103,6 @@ allCasos["inc"] = allCasos["ID_Count"].diff(1)
 
 
 # --- PLOTEAR 
-#fig1Ydata=[]
-#fig1Ydata.append(acum)
-#fig1Ydata.append(inc)
-#fig1Ydata.append(allCasos)
-#fig1labels = ["Acumulado","Incremento", "Casos Diarios"]
-#fig1Title =  "Acumulado, Incremento y Casos en Colombia desde su aparición"
-
  
 #Crear los parámetros para cada "trace". Basicamente eje Y.
 trace1 = {'x': allCasos["Fecha"],
@@ -170,11 +154,6 @@ Fallecido = EstadosFecha[EstadosFecha['Atencion'].isin(['Fallecido'])].groupby('
 
 
 # PLOTEAR 
-#fig1Ydata=[]
-#fig1Ydata.append(Recuperados)
-#fig1Ydata.append(Infectados)
-#fig1labels = ["Recuperados","Infectados"]
-#fig1Title =  "Recuperados vs Infectados por Fecha"
 
 trace1 = {'x': Recuperados['Fecha'],
           'y': Recuperados['ID'],
@@ -198,7 +177,6 @@ trace3 = {'x':Fallecido['Fecha'],
           };
 
 data = [trace1, trace2, trace3];
-#print(data)
 
 layout = dict(title = 'Fallecidos, Recuperados, Infectados',  xaxis= dict(title= 'Fecha',ticklen= 5,zeroline= False)
              )
