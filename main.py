@@ -36,51 +36,27 @@ df.rename(columns = {'Fecha de diagnóstico':'Fecha',
                      'Atención**':'Atencion',
                      'Tipo*':'Tipo'}, inplace = True) 
 
-
-
-
-
 f = df[['Fecha']].drop_duplicates()
-#print(f[['Fecha de diagnóstico']])
-#Parece ser q iterar un dataframe de pandas no es buena idea. Convertir mejor a lista
-#https://stackoverflow.com/questions/16476924/how-to-iterate-over-rows-in-a-dataframe-in-pandas
-ff = f.values.tolist()
 
-#Definir listas para usar más abajo
-allRel=[]
-allImp=[]
-allEst=[]
-allCasos=[]
-myFechas=[]
 
-for row in ff:
-    r = row[0]
-    #Pandas y SQL:https://pandas.pydata.org/pandas-docs/stable/getting_started/comparison/comparison_with_sql.html
-
- 
-    rel = df[(df['Tipo'] == 'Relacionado') & (df['Fecha'] == r)].count()
-    allRel.append(rel[0])
-    
-    imp = df[(df['Tipo'] == 'Importado') & (df['Fecha'] == r)].count()
-    allImp.append(imp[0])
-    
-    est = df[(df['Tipo'] == 'En estudio') & (df['Fecha'] == r)].count()
-    allEst.append(est[0])
-    
-    casos = df[(df['Fecha'] == r)].count()
-    allCasos.append(casos[0])
-    
-    myFechas.append(r)
-    
+#Se define el formato de las fechas como datetime
+df['Fecha']=pd.to_datetime(df['Fecha'], format='%d/%m/%Y')
+#Se realizan los conteos por fecha y tipo     
+df_cont = df[['Fecha','Tipo','ID']].groupby(['Fecha','Tipo']).count().add_suffix('_Count').reset_index()
+# Se realizan conteos por tipo relacionado, importado, en estudio y totales
+allRel = df_cont[df_cont['Tipo'] == 'Relacionado']
+allImp = df_cont[df_cont['Tipo'] == 'Importado']
+allEst = df_cont[df_cont['Tipo'] == 'En estudio']
+allCasos = df_cont[['Fecha','ID_Count']].groupby(['Fecha']).sum().reset_index()
 
 #---------- DATOS BASICOS ----------
     
 print ("----------------") 
 
-c = sum(allCasos)
-i = sum(allImp)
-e = sum(allEst)
-r = sum(allRel)
+c = sum(allCasos['ID_Count'])
+i = sum(allImp['ID_Count'])
+e = sum(allEst['ID_Count'])
+r = sum(allRel['ID_Count'])
 print('Casos Totales:     ' + str(c))
 print('Casos Importados:  ' + str(i) + "(" + str(percentage(i,c)) + "%)")  
 print('Casos Relacionados:' + str(r) + "(" + str(percentage(r,c)) + "%)")
@@ -91,28 +67,27 @@ print('Casos en Estudio:  ' + str(e) + "(" + str(percentage(e,c)) + "%)")
 
 
 #--------------  RELACIONADOS - IMPORTADOS - EN ESTUDIO ------------------------ 
-# PLOTEAR 
-plot2Ydata=[]
-plot2Ydata.append(allImp)
-plot2Ydata.append(allRel)
-plot2Ydata.append(allEst)
-plot2Labels = ["Importados","Relacionados","En Estudio"]
-plot2Title = "Importados, Relacionados y En Estudio por Fecha"
+# plot2Ydata=[]
+# plot2Ydata.append(allImp)
+# plot2Ydata.append(allRel)
+# plot2Ydata.append(allEst)
+# plot2Labels = ["Importados","Relacionados","En Estudio"]
+# plot2Title = "Importados, Relacionados y En Estudio por Fecha"
 
-trace1 = {'x': myFechas,
-          'y': allImp,
+trace1 = {'x': allImp['Fecha'],
+          'y': allImp['ID_Count'],
           'mode' : "lines+markers",
           'name' : 'Contagio en el exterior',
           'marker' : dict(color = 'DarkSlateGrey')
           } ;
-trace2 = {'x': myFechas,
-          'y': allRel,
+trace2 = {'x': allRel['Fecha'],
+          'y': allRel['ID_Count'],
           'mode' : "lines+markers",
           'name' : 'Contagio en Colombia',
           'marker' : dict(color = '#ff6361')
           } ;
-trace3 = {'x': myFechas,
-          'y': allEst,
+trace3 = {'x': allEst['Fecha'],
+          'y': allEst['ID_Count'],
           'mode' : "lines+markers",
           'name' : 'En estudio',
           'marker' : dict(color = '#ffa600')
@@ -127,53 +102,41 @@ fig = dict(data = data, layout = layout)
 pyo.plot(fig)
   
 
-
-
 #--------------  ACUMULADO E INCREMENTO POR FECHA -------------------- 
-acum = []
-inc = []
 
-#Esta append es necesario porun error de "index out of range"
-#https://www.stechies.com/indexerror-list-assignment-index-out-range/
-inc.append(1)
-acum.append(1)
+#Acumulado es igual a los casos de hoy mas los acumulados hasta ayer.
+allCasos["acum"]= allCasos["ID_Count"].cumsum(axis=0)
 
-for i in range(1,len(allCasos)):
-    
-    #Acumulado es igual a los casos de hoy mas los acumulados hasta ayer.
-    v = allCasos[i] + acum[i-1]
-    acum.append(v) 
-    
-    #Incremento es igual  los casos de hoy menos los casos de ayer.
-    x = allCasos[i] - allCasos[i-1]
-    inc.append(x)
+#Incremento es igual  los casos de hoy menos los casos de ayer.
+allCasos["inc"] = allCasos["ID_Count"].diff(1)
+
 
 # --- PLOTEAR 
-fig1Ydata=[]
-fig1Ydata.append(acum)
-fig1Ydata.append(inc)
-fig1Ydata.append(allCasos)
-fig1labels = ["Acumulado","Incremento", "Casos Diarios"]
-fig1Title =  "Acumulado, Incremento y Casos en Colombia desde su aparición"
+#fig1Ydata=[]
+#fig1Ydata.append(acum)
+#fig1Ydata.append(inc)
+#fig1Ydata.append(allCasos)
+#fig1labels = ["Acumulado","Incremento", "Casos Diarios"]
+#fig1Title =  "Acumulado, Incremento y Casos en Colombia desde su aparición"
 
  
 #Crear los parámetros para cada "trace". Basicamente eje Y.
-trace1 = {'x': myFechas,
-          'y': acum,
+trace1 = {'x': allCasos["Fecha"],
+          'y': allCasos["acum"],
           'mode' : "lines+markers",
           'name' : 'Acumulado',
           'marker' : dict(color = 'DarkSlateGrey')
           } ;
 
-trace2 = {'x':myFechas,
-          'y':inc,
+trace2 = {'x':allCasos["Fecha"],
+          'y':allCasos["inc"],
           'mode' : "lines+markers",
           'name':'Incremento',
           'marker' : dict(color = '#ff6361')
           };
 
-trace3 = {'x':myFechas,
-          'y':allCasos,
+trace3 = {'x':allCasos["Fecha"],
+          'y':allCasos["ID_Count"],
           'mode' : "lines+markers",
           'name':'Casos',
           'marker' : dict(color = '#ffa600')
@@ -194,61 +157,50 @@ pyo.plot(fig)
 #--------------  MODELO SIR -------------------- 
 
 # Clasificacion por Atencion en fechas
-EstadosFecha = df.groupby(['Fecha', 'Atencion'], sort=False)['ID'].count()
+EstadosFecha = df.groupby(['Fecha', 'Atencion'], sort=False)['ID'].count().reset_index()
 
 # poblacion colombiana
 N = 49070000 # 49,07 millones
+myFechas = allCasos['Fecha'].values
 
 # infectados y recuperados
-Infectados = []
-Recuperados = []
-Fechas = []
-
-Recuperados.append(1)
-Infectados.append(1)
-Fechas.append('')
-Rec = 0
-Inf = 0
-for items in EstadosFecha.iteritems():
-    if Fechas[-1] != items[0][0]:
-        Fechas.append(items[0][0])
-        Recuperados.append(Rec)
-        Infectados.append(Inf)
-        
-        Inf = 0
-        Rec = 0
-    Tipo = items[0][1]
-    if Tipo == 'Casa' or Tipo == 'Hospital' or Tipo == 'Hospital UCI':
-        Inf = Inf + items[1]
-    elif Tipo == 'Recuperado' or Tipo == 'Fallecido':
-        Rec = Rec + items[1]
+Infectados = EstadosFecha[EstadosFecha['Atencion'].isin(['Casa','Hospital','Hospital UCI'])].groupby('Fecha').sum().reset_index()
+Recuperados = EstadosFecha[EstadosFecha['Atencion'].isin(['Recuperado'])].groupby('Fecha').sum().reset_index()
+Fallecido = EstadosFecha[EstadosFecha['Atencion'].isin(['Fallecido'])].groupby('Fecha').sum().reset_index()
 
 
 # PLOTEAR 
-fig1Ydata=[]
-fig1Ydata.append(Recuperados)
-fig1Ydata.append(Infectados)
-fig1labels = ["Recuperados","Infectados"]
-fig1Title =  "Recuperados vs Infectados por Fecha"
+#fig1Ydata=[]
+#fig1Ydata.append(Recuperados)
+#fig1Ydata.append(Infectados)
+#fig1labels = ["Recuperados","Infectados"]
+#fig1Title =  "Recuperados vs Infectados por Fecha"
 
-trace1 = {'x': myFechas,
-          'y': Recuperados,
+trace1 = {'x': Recuperados['Fecha'],
+          'y': Recuperados['ID'],
           'mode' : "lines+markers",
           'name' : 'Recuperados',
           'marker' : dict(color = 'DarkSlateGrey')
           } ;
 
-trace2 = {'x':myFechas,
-          'y':Infectados,
+trace2 = {'x':Infectados['Fecha'],
+          'y':Infectados['ID'],
           'mode' : "lines+markers",
           'name':'Infectados',
           'marker' : dict(color = '#ff6361')
           };
 
-data = [trace1, trace2];
+trace3 = {'x':Fallecido['Fecha'],
+          'y':Fallecido['ID'],
+          'mode' : "lines+markers",
+          'name':'Fallecidos',
+          'marker' : dict(color = '#2b97eb')
+          };
+
+data = [trace1, trace2, trace3];
 #print(data)
 
-layout = dict(title = 'Recuperados vs. Infectaods',  xaxis= dict(title= 'Fecha',ticklen= 5,zeroline= False)
+layout = dict(title = 'Fallecidos, Recuperados, Infectados',  xaxis= dict(title= 'Fecha',ticklen= 5,zeroline= False)
              )
 
 fig = dict(data = data, layout = layout)
