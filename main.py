@@ -90,7 +90,7 @@ layout = dict(title = 'Casos venidos del extranjero vs. contagios locales',  xax
              )
 
 fig = dict(data = data, layout = layout)
-pyo.plot(fig)
+pyo.plot(fig, filename='import_local.html')
   
 
 #--------------  ACUMULADO E INCREMENTO POR FECHA -------------------- 
@@ -133,7 +133,7 @@ layout = dict(title = 'Progresión de casos en Colombia desde Marzo 6 del 2020 a
              )
 
 fig = dict(data = data, layout = layout)
-pyo.plot(fig)
+pyo.plot(fig, filename='progresion.html')
 
 
 
@@ -182,4 +182,4 @@ layout = dict(title = 'Fallecidos, Recuperados, Infectados',  xaxis= dict(title=
              )
 
 fig = dict(data = data, layout = layout)
-pyo.plot(fig)
+pyo.plot(fig, filename='rec_inf.html')
