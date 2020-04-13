@@ -39,7 +39,8 @@ df_pacientes.rename(columns = {'Fecha de diagnóstico':'Fecha',
                      'Atención**':'Atencion',
                      'Tipo*':'Tipo'}, inplace = True)
 
-df_generales.rename(columns = {'Fallecidos acumulados':'Fallecidos',
+df_generales.rename(columns = {'':'Fechas',
+                     'Fallecidos acumulados':'Fallecidos',
                      'Positivos acumulados':'Infectados',
                      'Recuperados acumulados':'Recuperados'}, inplace = True)
 
@@ -146,39 +147,31 @@ pyo.plot(fig, filename='progresion.html')
 
     
 #--------------  MODELO SIR -------------------- 
+df_generales['Fechas'] = pd.to_datetime(df_generales['Fechas'], format='%d/%m')+pd.offsets.DateOffset(years=120)
+df_generales['Infectados'] = pd.to_numeric(df_generales['Infectados'])
+df_generales['Recuperados'] = pd.to_numeric(df_generales['Recuperados'])
+df_generales['Fallecidos'] = pd.to_numeric(df_generales['Fallecidos'])
+df_generales.fillna(0, inplace=True)
 
 # poblacion colombiana
 N = 49070000 # 49,07 millones
-myFechas = allCasos['Fecha'].values
 
-# Obtiene las columnas en listas por separado
-I = df_generales['Infectados'].to_list()
-R = df_generales['Recuperados'].to_list()
-Fallecidos = df_generales['Fallecidos'].to_list()
-
-# Convierte las listas de string a integer
-I = [int(i) if i!='' else 0 for i in I]
-R = [int(i) if i!='' else 0 for i in R]
-Fallecidos = [int(i) if i!='' else 0 for i in Fallecidos]
-
-# Añade los fallecidos a la lista de recuperados
-for i, bi in enumerate(Fallecidos): R[i] += bi
-
-S = [N - I[i] - R[i] for i in range(len(I))]
+# Obtiene los acumulados para cada factor del modelo
+df_generales['I'] = df_generales['Infectados']
+df_generales['R'] = df_generales['Recuperados'] + df_generales['Fallecidos']
+df_generales['S'] = N - df_generales['I'] - df_generales['R']
 
 # Calcula la derivada de los acumulados
-puntoS = [x - S[i-1] for i, x in enumerate(S)]
-puntoI = [x - I[i-1] for i, x in enumerate(I)]
-puntoR = [x - R[i-1] for i, x in enumerate(R)]
-puntoS[0] = 0
-puntoI[0] = 0
-puntoR[0] = 0
+df_generales["puntoS"] = df_generales.S - ([0] + df_generales.iloc[:-1]["S"].tolist())
+df_generales["puntoI"] = df_generales.I - ([0] + df_generales.iloc[:-1]["I"].tolist())
+df_generales["puntoR"] = df_generales.R - ([0] + df_generales.iloc[:-1]["R"].tolist())
 
 import SIR
-beta_gamma, intercept = SIR.RegresionLineal(I, puntoI)
+beta_gamma, intercept = SIR.RegresionLineal(df_generales['I'].to_list(), df_generales['puntoI'].to_list())
 print ("(beta-gamma) found by gradient descent: %f" %(beta_gamma[0]))
 
 # Grafica
+I = df_generales['I'].to_list()
 trendX = [I[0], I[-1]]
 trendY = [(I[0]*beta_gamma[0])+intercept, (I[-1]*beta_gamma[0])+intercept]
 trend = {'x': trendX,
@@ -187,8 +180,8 @@ trend = {'x': trendX,
           'name' : 'tendencia',
           'marker' : dict(color = '#ffa600')
           } ;
-scatter =  {'x': I,
-          'y': puntoI,
+scatter =  {'x': df_generales['I'],
+          'y': df_generales['puntoI'],
           'mode' : "markers",
           'name' : 'infectados',
           'marker' : dict(color = '#ff6361')
@@ -203,7 +196,7 @@ fig = dict(data = data, layout = layout)
 pyo.plot(fig, filename='acu_nuevos.html')
 
 # Encontrando gamma
-gamma, _ = SIR.RegresionLineal(I, puntoR)
+gamma, _ = SIR.RegresionLineal(df_generales['I'].to_list(), df_generales['puntoR'].to_list())
 print ("(gamma) found by gradient descent: %f" %(gamma[0]))
 
 # Grafica
@@ -215,8 +208,8 @@ trend = {'x': trendX,
           'name' : 'tendencia',
           'marker' : dict(color = '#ffa600')
           } ;
-scatter =  {'x': I,
-          'y': puntoR,
+scatter =  {'x': df_generales['I'],
+          'y': df_generales['puntoR'],
           'mode' : "markers",
           'name' : 'Recuperados',
           'marker' : dict(color = '#ff6361')
@@ -248,15 +241,15 @@ punto_R = gama * Infectados
 # NOTA: punto_S + punto_I + punto_R = 0 
 """
 
-trace1 = {'x': myFechas,
-          'y': R,
+trace1 = {'x': df_generales['Fechas'],
+          'y': df_generales['R'],
           'mode' : "lines+markers",
-          'name' : 'Recuperados',
+          'name' : 'Recuperados + Fallecidos',
           'marker' : dict(color = 'DarkSlateGrey')
           } ;
 
-trace2 = {'x':myFechas,
-          'y':I,
+trace2 = {'x': df_generales['Fechas'],
+          'y': df_generales['I'],
           'mode' : "lines+markers",
           'name':'Infectados',
           'marker' : dict(color = '#ff6361')
@@ -264,7 +257,7 @@ trace2 = {'x':myFechas,
 
 data = [trace1, trace2];
 
-layout = dict(title = 'Fallecidos, Recuperados, Infectados',  xaxis= dict(title= 'Fecha',ticklen= 5,zeroline= False)
+layout = dict(title = 'Recuperados, Infectados',  xaxis= dict(title= 'Fecha',ticklen= 5,zeroline= False)
              )
 
 fig = dict(data = data, layout = layout)
