@@ -16,31 +16,38 @@ import requests
 from funciones import plotme, percentage
 
 #Teniendo en cuenta que la informacion del Covid-19 se encuentra en la web, se referencia la data para que esta este actualizada
-url="https://e.infogram.com/api/live/flex/bc384047-e71c-47d9-b606-1eb6a29962e3/664bc407-2569-4ab8-b7fb-9deb668ddb7a?"
+url_pacientes = "https://e.infogram.com/api/live/flex/bc384047-e71c-47d9-b606-1eb6a29962e3/664bc407-2569-4ab8-b7fb-9deb668ddb7a?"
+url_generales = 'https://e.infogram.com/api/live/flex/bc384047-e71c-47d9-b606-1eb6a29962e3/523ca417-2781-47f0-87e8-1ccc2d5c2839?'
 
 #Debido a que la información no proviene de un formato dado, es necesario definirla como texto y aprovechar
 #que esta viene en formato py, por ende se evalua ese texto
-s=eval(requests.get(url).text)
+json_pacientes = eval(requests.get(url_pacientes).text)
+json_generales = eval(requests.get(url_generales).text)
 
 #Se seleccionan unicamente el dataframe del historico y se define como dataframe
-data=s["data"][0]
-#df = pd.read_csv('insdata.csv')
-df = pd.DataFrame(data=data[1:], columns=data[0])
+data = json_pacientes["data"][0]
+df_pacientes = pd.DataFrame(data=data[1:], columns=data[0])
+data = json_generales["data"][0] # Hoja de casos acumulados
+df_generales = pd.DataFrame(data=data[1:], columns=data[0])
 
 #Renombrar algunas columnas
-df.rename(columns = {'Fecha de diagnóstico':'Fecha',
+df_pacientes.rename(columns = {'Fecha de diagnóstico':'Fecha',
                      'ID de caso':'ID', 
                      'País de procedencia':'Procedencia', 
                      'Ciudad de ubicación':'Ciudad',
                      'Departamento o Distrito':'Departamento',
                      'Atención**':'Atencion',
-                     'Tipo*':'Tipo'}, inplace = True) 
+                     'Tipo*':'Tipo'}, inplace = True)
+
+df_generales.rename(columns = {'Fallecidos acumulados':'Fallecidos',
+                     'Positivos acumulados':'Infectados',
+                     'Recuperados acumulados':'Recuperados'}, inplace = True)
 
 
 
 
 
-f = df[['Fecha']].drop_duplicates()
+f = df_pacientes[['Fecha']].drop_duplicates()
 #print(f[['Fecha de diagnóstico']])
 #Parece ser q iterar un dataframe de pandas no es buena idea. Convertir mejor a lista
 #https://stackoverflow.com/questions/16476924/how-to-iterate-over-rows-in-a-dataframe-in-pandas
@@ -58,16 +65,16 @@ for row in ff:
     #Pandas y SQL:https://pandas.pydata.org/pandas-docs/stable/getting_started/comparison/comparison_with_sql.html
 
  
-    rel = df[(df['Tipo'] == 'Relacionado') & (df['Fecha'] == r)].count()
+    rel = df_pacientes[(df_pacientes['Tipo'] == 'Relacionado') & (df_pacientes['Fecha'] == r)].count()
     allRel.append(rel[0])
     
-    imp = df[(df['Tipo'] == 'Importado') & (df['Fecha'] == r)].count()
+    imp = df_pacientes[(df_pacientes['Tipo'] == 'Importado') & (df_pacientes['Fecha'] == r)].count()
     allImp.append(imp[0])
     
-    est = df[(df['Tipo'] == 'En estudio') & (df['Fecha'] == r)].count()
+    est = df_pacientes[(df_pacientes['Tipo'] == 'En estudio') & (df_pacientes['Fecha'] == r)].count()
     allEst.append(est[0])
     
-    casos = df[(df['Fecha'] == r)].count()
+    casos = df_pacientes[(df_pacientes['Fecha'] == r)].count()
     allCasos.append(casos[0])
     
     myFechas.append(r)
@@ -193,60 +200,121 @@ pyo.plot(fig, filename='progresion.html')
     
 #--------------  MODELO SIR -------------------- 
 
-# Clasificacion por Atencion en fechas
-EstadosFecha = df.groupby(['Fecha', 'Atencion'], sort=False)['ID'].count()
-
 # poblacion colombiana
 N = 49070000 # 49,07 millones
 
-# infectados y recuperados
-Infectados = []
-Recuperados = []
-Fechas = []
+# Obtiene las columnas en listas por separado
+I = df_generales['Infectados'].to_list()
+R = df_generales['Recuperados'].to_list()
+Fallecidos = df_generales['Fallecidos'].to_list()
 
-Recuperados.append(1)
-Infectados.append(1)
-Fechas.append('')
-Rec = 0
-Inf = 0
-for items in EstadosFecha.iteritems():
-    if Fechas[-1] != items[0][0]:
-        Fechas.append(items[0][0])
-        Recuperados.append(Rec)
-        Infectados.append(Inf)
-        
-        Inf = 0
-        Rec = 0
-    Tipo = items[0][1]
-    if Tipo == 'Casa' or Tipo == 'Hospital' or Tipo == 'Hospital UCI':
-        Inf = Inf + items[1]
-    elif Tipo == 'Recuperado' or Tipo == 'Fallecido':
-        Rec = Rec + items[1]
+# Convierte las listas de string a integer
+I = [int(i) if i!='' else 0 for i in I]
+R = [int(i) if i!='' else 0 for i in R]
+Fallecidos = [int(i) if i!='' else 0 for i in Fallecidos]
+
+# Añade los fallecidos a la lista de recuperados
+for i, bi in enumerate(Fallecidos): R[i] += bi
+
+S = [N - I[i] - R[i] for i in range(len(I))]
+
+# Calcula la derivada de los acumulados
+puntoS = [x - S[i-1] for i, x in enumerate(S)]
+puntoI = [x - I[i-1] for i, x in enumerate(I)]
+puntoR = [x - R[i-1] for i, x in enumerate(R)]
+puntoS[0] = 0
+puntoI[0] = 0
+puntoR[0] = 0
+
+import SIR
+beta_gamma, intercept = SIR.RegresionLineal(I, puntoI)
+print ("(beta-gamma) found by gradient descent: %f" %(beta_gamma[0]))
+
+# Grafica
+trendX = [I[0], I[-1]]
+trendY = [(I[0]*beta_gamma[0])+intercept, (I[-1]*beta_gamma[0])+intercept]
+trend = {'x': trendX,
+          'y': trendY,
+          'mode' : "lines",
+          'name' : 'tendencia',
+          'marker' : dict(color = '#ffa600')
+          } ;
+scatter =  {'x': I,
+          'y': puntoI,
+          'mode' : "markers",
+          'name' : 'infectados',
+          'marker' : dict(color = '#ff6361')
+          } ;
+
+data = [scatter, trend];
+
+layout = dict(title = 'Infectados acumulados vs nuevos infectados',  xaxis= dict(title= 'Infectados acumulados',ticklen= 5,zeroline= False)
+             )
+
+fig = dict(data = data, layout = layout)
+pyo.plot(fig, filename='acu_nuevos.html')
+
+# Encontrando gamma
+gamma, _ = SIR.RegresionLineal(I, puntoR)
+print ("(gamma) found by gradient descent: %f" %(gamma[0]))
+
+# Grafica
+trendX = [I[0], I[-1]]
+trendY = [(I[0]*gamma[0])+_, (I[-1]*gamma[0])+_]
+trend = {'x': trendX,
+          'y': trendY,
+          'mode' : "lines",
+          'name' : 'tendencia',
+          'marker' : dict(color = '#ffa600')
+          } ;
+scatter =  {'x': I,
+          'y': puntoR,
+          'mode' : "markers",
+          'name' : 'Recuperados',
+          'marker' : dict(color = '#ff6361')
+          } ;
+
+data = [scatter, trend];
+
+layout = dict(title = 'Infectados acumulados vs nuevos recuperados',  xaxis= dict(title= 'Infectados acumulados',ticklen= 5,zeroline= False)
+             )
+
+fig = dict(data = data, layout = layout)
+pyo.plot(fig, filename='acumulados_vs_nuevos_recuperados.html')
+
+beta = beta_gamma[0] - gamma[0]
+R_0 = beta / gamma
+print ("(beta) found by gradient descent: %f" %(beta))
+print ("(R_0) found by gradient descent: %f" %(R_0))
+
+""" 
+# Coeficiente de transmicion beta 
+# y Tasa de recuperacion gama
+# se obtienen por gradient descent
 
 
-# PLOTEAR 
-fig1Ydata=[]
-fig1Ydata.append(Recuperados)
-fig1Ydata.append(Infectados)
-fig1labels = ["Recuperados","Infectados"]
-fig1Title =  "Recuperados vs Infectados por Fecha"
+# Calculo de derivadas: tasa de cambio
+punto_S = -beta * Suceptibles * Infectados / N
+punto_I = (beta * Suceptibles * Infectados / N) - (gama * Infectados)
+punto_R = gama * Infectados
+# NOTA: punto_S + punto_I + punto_R = 0 
+"""
 
 trace1 = {'x': myFechas,
-          'y': Recuperados,
+          'y': R,
           'mode' : "lines+markers",
           'name' : 'Recuperados',
           'marker' : dict(color = 'DarkSlateGrey')
           } ;
 
 trace2 = {'x':myFechas,
-          'y':Infectados,
+          'y':I,
           'mode' : "lines+markers",
           'name':'Infectados',
           'marker' : dict(color = '#ff6361')
           };
 
 data = [trace1, trace2];
-#print(data)
 
 layout = dict(title = 'Recuperados vs. Infectaods',  xaxis= dict(title= 'Fecha',ticklen= 5,zeroline= False)
              )
