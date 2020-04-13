@@ -43,83 +43,49 @@ df_generales.rename(columns = {'Fallecidos acumulados':'Fallecidos',
                      'Positivos acumulados':'Infectados',
                      'Recuperados acumulados':'Recuperados'}, inplace = True)
 
-
-
-
-
 f = df_pacientes[['Fecha']].drop_duplicates()
-#print(f[['Fecha de diagnóstico']])
-#Parece ser q iterar un dataframe de pandas no es buena idea. Convertir mejor a lista
-#https://stackoverflow.com/questions/16476924/how-to-iterate-over-rows-in-a-dataframe-in-pandas
-ff = f.values.tolist()
 
-#Definir listas para usar más abajo
-allRel=[]
-allImp=[]
-allEst=[]
-allCasos=[]
-myFechas=[]
 
-for row in ff:
-    r = row[0]
-    #Pandas y SQL:https://pandas.pydata.org/pandas-docs/stable/getting_started/comparison/comparison_with_sql.html
-
- 
-    rel = df_pacientes[(df_pacientes['Tipo'] == 'Relacionado') & (df_pacientes['Fecha'] == r)].count()
-    allRel.append(rel[0])
-    
-    imp = df_pacientes[(df_pacientes['Tipo'] == 'Importado') & (df_pacientes['Fecha'] == r)].count()
-    allImp.append(imp[0])
-    
-    est = df_pacientes[(df_pacientes['Tipo'] == 'En estudio') & (df_pacientes['Fecha'] == r)].count()
-    allEst.append(est[0])
-    
-    casos = df_pacientes[(df_pacientes['Fecha'] == r)].count()
-    allCasos.append(casos[0])
-    
-    myFechas.append(r)
-    
+#Se define el formato de las fechas como datetime
+df_pacientes['Fecha']=pd.to_datetime(df_pacientes['Fecha'], format='%d/%m/%Y')
+#Se realizan los conteos por fecha y tipo     
+df_cont = df_pacientes[['Fecha','Tipo','ID']].groupby(['Fecha','Tipo']).count().add_suffix('_Count').reset_index()
+# Se realizan conteos por tipo relacionado, importado, en estudio y totales
+allRel = df_cont[df_cont['Tipo'] == 'Relacionado']
+allImp = df_cont[df_cont['Tipo'] == 'Importado']
+allEst = df_cont[df_cont['Tipo'] == 'En estudio']
+allCasos = df_cont[['Fecha','ID_Count']].groupby(['Fecha']).sum().reset_index()
 
 #---------- DATOS BASICOS ----------
     
 print ("----------------") 
 
-c = sum(allCasos)
-i = sum(allImp)
-e = sum(allEst)
-r = sum(allRel)
+c = sum(allCasos['ID_Count'])
+i = sum(allImp['ID_Count'])
+e = sum(allEst['ID_Count'])
+r = sum(allRel['ID_Count'])
 print('Casos Totales:     ' + str(c))
 print('Casos Importados:  ' + str(i) + "(" + str(percentage(i,c)) + "%)")  
 print('Casos Relacionados:' + str(r) + "(" + str(percentage(r,c)) + "%)")
 print('Casos en Estudio:  ' + str(e) + "(" + str(percentage(e,c)) + "%)")
 
 
-
-
-
 #--------------  RELACIONADOS - IMPORTADOS - EN ESTUDIO ------------------------ 
-# PLOTEAR 
-plot2Ydata=[]
-plot2Ydata.append(allImp)
-plot2Ydata.append(allRel)
-plot2Ydata.append(allEst)
-plot2Labels = ["Importados","Relacionados","En Estudio"]
-plot2Title = "Importados, Relacionados y En Estudio por Fecha"
 
-trace1 = {'x': myFechas,
-          'y': allImp,
+trace1 = {'x': allImp['Fecha'],
+          'y': allImp['ID_Count'],
           'mode' : "lines+markers",
           'name' : 'Contagio en el exterior',
           'marker' : dict(color = 'DarkSlateGrey')
           } ;
-trace2 = {'x': myFechas,
-          'y': allRel,
+trace2 = {'x': allRel['Fecha'],
+          'y': allRel['ID_Count'],
           'mode' : "lines+markers",
           'name' : 'Contagio en Colombia',
           'marker' : dict(color = '#ff6361')
           } ;
-trace3 = {'x': myFechas,
-          'y': allEst,
+trace3 = {'x': allEst['Fecha'],
+          'y': allEst['ID_Count'],
           'mode' : "lines+markers",
           'name' : 'En estudio',
           'marker' : dict(color = '#ffa600')
@@ -134,53 +100,34 @@ fig = dict(data = data, layout = layout)
 pyo.plot(fig, filename='import_local.html')
   
 
-
-
 #--------------  ACUMULADO E INCREMENTO POR FECHA -------------------- 
-acum = []
-inc = []
 
-#Esta append es necesario porun error de "index out of range"
-#https://www.stechies.com/indexerror-list-assignment-index-out-range/
-inc.append(1)
-acum.append(1)
+#Acumulado es igual a los casos de hoy mas los acumulados hasta ayer.
+allCasos["acum"]= allCasos["ID_Count"].cumsum(axis=0)
 
-for i in range(1,len(allCasos)):
-    
-    #Acumulado es igual a los casos de hoy mas los acumulados hasta ayer.
-    v = allCasos[i] + acum[i-1]
-    acum.append(v) 
-    
-    #Incremento es igual  los casos de hoy menos los casos de ayer.
-    x = allCasos[i] - allCasos[i-1]
-    inc.append(x)
+#Incremento es igual  los casos de hoy menos los casos de ayer.
+allCasos["inc"] = allCasos["ID_Count"].diff(1)
+
 
 # --- PLOTEAR 
-fig1Ydata=[]
-fig1Ydata.append(acum)
-fig1Ydata.append(inc)
-fig1Ydata.append(allCasos)
-fig1labels = ["Acumulado","Incremento", "Casos Diarios"]
-fig1Title =  "Acumulado, Incremento y Casos en Colombia desde su aparición"
-
  
 #Crear los parámetros para cada "trace". Basicamente eje Y.
-trace1 = {'x': myFechas,
-          'y': acum,
+trace1 = {'x': allCasos["Fecha"],
+          'y': allCasos["acum"],
           'mode' : "lines+markers",
           'name' : 'Acumulado',
           'marker' : dict(color = 'DarkSlateGrey')
           } ;
 
-trace2 = {'x':myFechas,
-          'y':inc,
+trace2 = {'x':allCasos["Fecha"],
+          'y':allCasos["inc"],
           'mode' : "lines+markers",
           'name':'Incremento',
           'marker' : dict(color = '#ff6361')
           };
 
-trace3 = {'x':myFechas,
-          'y':allCasos,
+trace3 = {'x':allCasos["Fecha"],
+          'y':allCasos["ID_Count"],
           'mode' : "lines+markers",
           'name':'Casos',
           'marker' : dict(color = '#ffa600')
@@ -202,6 +149,7 @@ pyo.plot(fig, filename='progresion.html')
 
 # poblacion colombiana
 N = 49070000 # 49,07 millones
+myFechas = allCasos['Fecha'].values
 
 # Obtiene las columnas en listas por separado
 I = df_generales['Infectados'].to_list()
@@ -316,7 +264,7 @@ trace2 = {'x':myFechas,
 
 data = [trace1, trace2];
 
-layout = dict(title = 'Recuperados vs. Infectaods',  xaxis= dict(title= 'Fecha',ticklen= 5,zeroline= False)
+layout = dict(title = 'Fallecidos, Recuperados, Infectados',  xaxis= dict(title= 'Fecha',ticklen= 5,zeroline= False)
              )
 
 fig = dict(data = data, layout = layout)
