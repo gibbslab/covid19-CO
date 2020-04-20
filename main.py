@@ -16,28 +16,31 @@ import requests
 from funciones import plotme, percentage
 
 #Teniendo en cuenta que la informacion del Covid-19 se encuentra en la web, se referencia la data para que esta este actualizada
-url_pacientes = "https://e.infogram.com/api/live/flex/bc384047-e71c-47d9-b606-1eb6a29962e3/664bc407-2569-4ab8-b7fb-9deb668ddb7a?"
 url_generales = 'https://e.infogram.com/api/live/flex/bc384047-e71c-47d9-b606-1eb6a29962e3/523ca417-2781-47f0-87e8-1ccc2d5c2839?'
 
 #Debido a que la información no proviene de un formato dado, es necesario definirla como texto y aprovechar
 #que esta viene en formato py, por ende se evalua ese texto
-json_pacientes = eval(requests.get(url_pacientes).text)
 json_generales = eval(requests.get(url_generales).text)
 
 #Se seleccionan unicamente el dataframe del historico y se define como dataframe
-data = json_pacientes["data"][0]
-df_pacientes = pd.DataFrame(data=data[1:], columns=data[0])
+# Los datos de el INS pueden estar desactualizados, se actualizan confome a la informacion de datos abiertos
+df_pacientes = pd.read_csv('https://www.datos.gov.co/api/views/gt2j-8ykr/rows.csv?accessType=DOWNLOAD')
 data = json_generales["data"][0] # Hoja de casos acumulados
 df_generales = pd.DataFrame(data=data[1:], columns=data[0])
 
 #Renombrar algunas columnas
-df_pacientes.rename(columns = {'Fecha de diagnóstico':'Fecha',
-                     'ID de caso':'ID', 
-                     'País de procedencia':'Procedencia', 
+df_pacientes.rename(columns = {'atención':'Atencion',
                      'Ciudad de ubicación':'Ciudad',
-                     'Departamento o Distrito':'Departamento',
-                     'Atención**':'Atencion',
-                     'Tipo*':'Tipo'}, inplace = True)
+                     'Departamento o Distrito ':'Departamento',
+                     'Edad':'Edad',
+                     'Fecha de diagnóstico':'Fecha',
+                     'Fecha de muerte':'Fecha_Muerte',
+                     'Fecha recuperado':'Fecha_Recuperado',
+                     'FIS':'FIS',
+                     'ID de caso':'ID',
+                     'País de procedencia':'Procedencia', 
+                     'Sexo':'Sexo', 
+                     'Tipo':'Tipo'}, inplace = True)
 
 df_generales.rename(columns = {'':'Fechas',
                      'Fallecidos acumulados':'Fallecidos',
@@ -48,13 +51,14 @@ f = df_pacientes[['Fecha']].drop_duplicates()
 
 
 #Se define el formato de las fechas como datetime
-df_pacientes['Fecha']=pd.to_datetime(df_pacientes['Fecha'], format='%d/%m/%Y')
+df_pacientes['Fecha']=pd.to_datetime(df_pacientes['Fecha'].str.slice(start=0,stop=10), infer_datetime_format=True)
+df_pacientes['Tipo']=df_pacientes['Tipo'].str.lower()
 #Se realizan los conteos por fecha y tipo     
 df_cont = df_pacientes[['Fecha','Tipo','ID']].groupby(['Fecha','Tipo']).count().add_suffix('_Count').reset_index()
 # Se realizan conteos por tipo relacionado, importado, en estudio y totales
-allRel = df_cont[df_cont['Tipo'] == 'Relacionado']
-allImp = df_cont[df_cont['Tipo'] == 'Importado']
-allEst = df_cont[df_cont['Tipo'] == 'En estudio']
+allRel = df_cont[df_cont['Tipo'] == 'relacionado']
+allImp = df_cont[df_cont['Tipo'] == 'importado']
+allEst = df_cont[df_cont['Tipo'] == 'en estudio']
 allCasos = df_cont[['Fecha','ID_Count']].groupby(['Fecha']).sum().reset_index()
 
 #---------- DATOS BASICOS ----------
